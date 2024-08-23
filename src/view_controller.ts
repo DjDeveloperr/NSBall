@@ -1,6 +1,6 @@
 import "@nativescript/macos-node-api";
 import { Ball } from "./ball.js";
-import { CGPointGetLength, constrainRect, RADIUS } from "./util.js";
+import { CGPointGetLength, constrainRect, RADIUS, remap } from "./util.js";
 import { MouseCatcherDelegate } from "./mouse_catcher.js";
 
 export interface Sample {
@@ -66,9 +66,9 @@ export class DragState {
 
 export class ViewController
   extends NSViewController
-  implements SKSceneDelegate, MouseCatcherDelegate
+  implements SKSceneDelegate, MouseCatcherDelegate, SKPhysicsContactDelegate
 {
-  static ObjCProtocols = [SKSceneDelegate];
+  static ObjCProtocols = [SKSceneDelegate, SKPhysicsContactDelegate];
 
   static {
     NativeClass(this);
@@ -137,6 +137,13 @@ export class ViewController
 
   ballPositionChanged?: () => void;
 
+  sounds = ["pop_01", "pop_02", "pop_03"].map((id) =>
+    NSSound.alloc().initWithContentsOfFileByReference(
+      new URL(`../assets/${id}.caf`, import.meta.url).pathname,
+      true
+    )
+  );
+
   viewDidLoad() {
     super.viewDidLoad();
 
@@ -144,9 +151,15 @@ export class ViewController
     this.sceneView.presentScene(this.scene);
     this.scene.backgroundColor = NSColor.clearColor;
     this.scene.delegate = this;
+    this.scene.physicsWorld.contactDelegate = this;
     this.sceneView.allowsTransparency = true;
 
     this.sceneView.preferredFramesPerSecond = 120;
+
+    for (const sound of this.sounds) {
+      sound.volume = 0;
+      sound.play();
+    }
   }
 
   viewDidLayout() {
@@ -297,8 +310,6 @@ export class ViewController
             dx: velocity.x,
             dy: velocity.y,
           });
-        } else {
-          console.log("scroll", velocity.x, velocity.y);
         }
 
         this.tempMouseCatcherRect = undefined;
@@ -321,5 +332,30 @@ export class ViewController
 
   didFinishUpdateForScene(_scene: SKScene): void {
     this.ball?.update();
+  }
+
+  didBeginContact(contact: SKPhysicsContact) {
+    const minImpulse = 1000;
+    const maxImpulse = 2000;
+
+    const collisionStrength = remap(
+      contact.collisionImpulse,
+      minImpulse,
+      maxImpulse,
+      0,
+      0.5
+    );
+
+    if (collisionStrength <= 0) return;
+
+    NSOperationQueue.mainQueue.addOperationWithBlock(() => {
+      const sounds = this.sounds;
+      const soundsUsable = sounds.filter((sound) => !sound.isPlaying);
+      if (soundsUsable.length === 0) return;
+      const randomSound =
+        soundsUsable[Math.floor(Math.random() * soundsUsable.length)];
+      randomSound.volume = collisionStrength;
+      randomSound.play();
+    });
   }
 }

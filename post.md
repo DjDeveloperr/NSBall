@@ -44,7 +44,9 @@ And running `deno task run` should print out your OS version!
 
 This allows us to run on Deno. To run on Node.js, initialize the project as you would with `npm init`, install `npm install @nativescript/macos-node-api`. Make sure to setup `tsconfig.json` too, run the TypeScript compiler and then run the project with `node`. Boom, you get the same output but in Node.js! Node-API allows NativeScript to run seamlessly on both Node.js and Deno.
 
-## Making the Ball bounce on screen
+## Implementation
+
+### Basic AppKit setup
 
 Let's start by making the AppDelegate class.
 
@@ -87,6 +89,8 @@ NSApplicationMain(0, null);
 
 On running this we see the message as expected in console, and a terminal icon appears in the Dock. This is the basic setup for a NativeScript macOS application. Rest is same as writing a macOS application in Objective-C or Swift, but in JavaScript.
 
+### Handling dock icon click
+
 Let's add more to this in order to handle dock icon clicks.
 
 ```ts
@@ -108,6 +112,8 @@ export class AppDelegate extends NSObject implements NSApplicationDelegate {
 
 - `applicationWillFinishLaunching`: Set the dock icon image. Ideally we would set it in the app bundle, but for now, let's just set it before the app finishes launching.
 - `applicationShouldHandleReopenHasVisibleWindows`: This method is called when the dock icon is clicked. We log a message to the console for now.
+
+### Creating a window for SpriteKit scene
 
 Now, when the application finishes launching, what we'll do is make a window on screen saver level that covers the whole screen and renders the ball using SpriteKit. Let's make that first.
 
@@ -197,6 +203,8 @@ export class AppDelegate extends NSObject implements NSApplicationDelegate, NSWi
   ...
 }
 ```
+
+### Adding ball object to the scene
 
 You won't notice much when you run this, but let's change that by adding an actual ball to this window.
 
@@ -311,7 +319,7 @@ Let's also use this view controller in the app delegate to set it as the root vi
 +     window.contentViewController = this.ballViewController;
 ```
 
-To actually launch the ball and redock it, let's define two methods in here: `launch` and `dock`. Both of them will accept a `CGRect` that defines the dock tile position in screen coordinates taking into consideration the mouse position where the dock icon was clicked.
+To launch the ball and redock it, let's define two methods in here: `launch` and `dock`. Both of them will accept a `CGRect` that defines the dock tile position in screen coordinates taking into consideration the mouse position where the dock icon was clicked.
 
 ```ts
 export class ViewController extends NSViewController {
@@ -614,4 +622,453 @@ export class AppDelegate
 
 Now we can run the project and see the ball launch and dock when the dock icon is clicked!
 
+### Interactions
+
 Next, let's add click handling. For that we need a window on same level but this time it accepts mouse events and only covers the part of the scene which is visible, i.e. the ball itself.
+
+We start by defining the view which captures the click events by overriding `NSView` methods. It will redirect the click events to the ball view controller.
+
+`mouse_catcher.ts`:
+
+```ts
+import "@nativescript/macos-node-api";
+
+export interface MouseCatcherDelegate {
+  onMouseDown(): void;
+  onMouseDrag(): void;
+  onMouseUp(): void;
+  onScroll(event: NSEvent): void;
+}
+
+export class MouseCatcherView extends NSView {
+  static {
+    NativeClass(this);
+  }
+
+  delegate!: MouseCatcherDelegate;
+
+  mouseDown(_event: NSEvent) {
+    this.delegate.onMouseDown();
+  }
+
+  mouseDragged(_event: NSEvent) {
+    this.delegate.onMouseDrag();
+  }
+
+  mouseUp(_event: NSEvent) {
+    this.delegate.onMouseUp();
+  }
+
+  scrollWheel(event: NSEvent) {
+    if (!(event.hasPreciseScrollingDeltas && event.momentumPhase == 0)) {
+      return;
+    }
+
+    this.delegate.onScroll(event);
+  }
+}
+```
+
+and in `app_delegate.ts`, we need to setup click window along with the ball / SpriteKit scene window. And its position needs to be updated along with the ball itself, so we added a callback to the ball view controller to update the click window position whenever the ball position changes. For convenience, we also add a getter to get the mouse catcher rect from the ball view controller.
+
+```ts
+export class AppDelegate
+  extends NSObject
+  implements NSApplicationDelegate, NSWindowDelegate
+{
+  ...
+
+  clickWindow!: NSWindow;
+
+  ...
+
+  set ballVisible(value) {
+    ...
+
+    this.clickWindow.setIsVisible(value);
+    if (value) {
+      this.updateClickWindow();
+    }
+  }
+
+  makeClickWindow() {
+    const clickWindow =
+      NSWindow.alloc().initWithContentRectStyleMaskBackingDefer(
+        {
+          origin: { x: 0, y: 0 },
+          size: { width: RADIUS * 2, height: RADIUS * 2 },
+        },
+        0,
+        NSBackingStoreType.Buffered,
+        false
+      );
+    clickWindow.isReleasedWhenClosed = false;
+    clickWindow.level = NSScreenSaverWindowLevel;
+    clickWindow.backgroundColor = NSColor.clearColor;
+
+    const catcher = MouseCatcherView.new();
+    clickWindow.contentView = catcher;
+    catcher.frame = {
+      origin: { x: 0, y: 0 },
+      size: { width: RADIUS * 2, height: RADIUS * 2 },
+    };
+    catcher.wantsLayer = true;
+    catcher.layer.backgroundColor =
+      NSColor.blackColor.colorWithAlphaComponent(0.01).CGColor;
+    catcher.layer.cornerRadius = RADIUS;
+    catcher.delegate = this.ballViewController;
+
+    this.clickWindow = clickWindow;
+
+    this.ballViewController.ballPositionChanged = () => {
+      this.updateClickWindow();
+    };
+  }
+
+  updateClickWindow() {
+    const rect = this.ballViewController.mouseCatcherRect;
+    if (!this.ballVisible || !rect) return;
+
+    const rounding = 10;
+    rect.origin.x = Math.round(CGRectGetMinX(rect) / rounding) * rounding;
+    rect.origin.y = Math.round(CGRectGetMinY(rect) / rounding) * rounding;
+
+    // HACK: Assume scene coords are same as window coords
+    const screen = this.ballWindow?.screen;
+    if (!screen) return;
+
+    if (rect) {
+      this.clickWindow.setFrameDisplay(
+        constrainRect(rect, screen.frame),
+        false
+      );
+    }
+  }
+
+  ...
+
+  applicationDidFinishLaunching(_notification: NSNotification): void {
+    ...
+    this.makeClickWindow();
+  }
+}
+```
+
+Here's how the `mouseCatcherRect` getter is implemented in `view_controller.ts`:
+
+```ts
+export class ViewController
+  extends NSViewController
+  implements SKSceneDelegate
+{
+  ...
+
+  tempMouseCatcherRect?: CGRect;
+
+  get mouseCatcherRect(): CGRect | undefined {
+    const rect = this.tempMouseCatcherRect ?? this.ball?.rect;
+    const window = this.view.window;
+
+    if (rect && window) {
+      return window.convertRectToScreen(rect);
+    }
+  }
+  
+  ...
+}
+```
+
+And add the `rect` getter to ball class:
+
+```ts
+export class Ball extends SKNode {
+  ...
+
+  get rect() {
+    return {
+      origin: {
+        x: this.position.x - this.radius,
+        y: this.position.y - this.radius,
+      },
+      size: { width: this.radius * 2, height: this.radius * 2 },
+    };
+  }
+
+  ...
+}
+```
+
+Note, the temp mouse catcher rect is there for overriding the ball rect when the ball is being dragged using scroll event, in which case we want the mouse catcher rect to stay in the initial position mouse was, not the ball's position which will change as its being dragged via scroll event.
+
+We need to handle the events next. But before doing that, let's implement how the ball should move when dragged. It's going to follow the mouse as expected and in case of scroll it moves in the direction of scroll, but when its released from that state of drag there must be a certain impulse applied to it. To implement that, we must keep track of the velocity during drag and then calculate the impulse at the end of drag state.
+
+`view_controller.ts`:
+
+```ts
+export interface Sample {
+  time: number;
+  pos: CGPoint;
+}
+
+export class VelocityTracker {
+  samples: Sample[] = [];
+
+  add(pos: CGPoint) {
+    const time = CACurrentMediaTime();
+    const sample = { time, pos };
+    this.samples.push(sample);
+    this.samples = this.filteredSamples;
+  }
+
+  get filteredSamples() {
+    const time = CACurrentMediaTime();
+    const filtered = this.samples.filter((sample) => time - sample.time < 0.1);
+    return filtered;
+  }
+
+  get velocity(): CGPoint {
+    const samples = this.filteredSamples;
+    if (samples.length < 2) {
+      return CGPointZero;
+    }
+    const first = samples[0];
+    const last = samples[samples.length - 1];
+    const delta = {
+      x: last.pos.x - first.pos.x,
+      y: last.pos.y - first.pos.y,
+    };
+    const time = last.time - first.time;
+    return {
+      x: delta.x / time,
+      y: delta.y / time,
+    };
+  }
+}
+
+export class DragState {
+  velocityTracker = new VelocityTracker();
+
+  constructor(
+    public ballStart: CGPoint,
+    public mouseStart: CGPoint,
+    public currentMousePos: CGPoint
+  ) {}
+
+  get currentBallPos() {
+    const delta = {
+      x: this.currentMousePos.x - this.mouseStart.x,
+      y: this.currentMousePos.y - this.mouseStart.y,
+    };
+    return {
+      x: this.ballStart.x + delta.x,
+      y: this.ballStart.y + delta.y,
+    };
+  }
+}
+
+export class ViewController
+  extends NSViewController
+  implements SKSceneDelegate, MouseCatcherDelegate
+{
+  ...
+
+  _dragState?: DragState;
+
+  get dragState() {
+    return this._dragState;
+  }
+
+  set dragState(value) {
+    this._dragState = value;
+
+    if (value && this.ball) {
+      this.ball.physicsBody.isDynamic = false;
+
+      const pos = value.currentBallPos;
+
+      const constrainedRect = constrainRect(
+        {
+          origin: { x: pos.x - this.ball.radius, y: pos.y - this.ball.radius },
+          size: { width: this.ball.radius * 2, height: this.ball.radius * 2 },
+        },
+        this.view.bounds
+      );
+
+      this.ball.position = {
+        x: CGRectGetMidX(constrainedRect),
+        y: CGRectGetMidY(constrainedRect),
+      };
+    } else if (this.ball) {
+      this.ball.physicsBody.isDynamic = true;
+    }
+  }
+
+  ballPositionChanged?: () => void;
+
+  ...
+
+  get mouseScenePos() {
+    const viewPos = this.sceneView.convertPointFromView(
+      this.view.window.mouseLocationOutsideOfEventStream,
+      null
+    );
+    const scenePos = this.scene.convertPointFromView(viewPos);
+    return scenePos;
+  }
+
+  onMouseDown() {
+    const scenePos = this.mouseScenePos;
+    if (this.ball && this.ball.containsPoint(scenePos)) {
+      this.dragState = new DragState(this.ball.position, scenePos, scenePos);
+    } else {
+      this.dragState = undefined;
+    }
+  }
+
+  onMouseDrag() {
+    if (this.dragState) {
+      this.dragState.currentMousePos = this.mouseScenePos;
+      this.dragState.velocityTracker.add(this.dragState.currentMousePos);
+      this.dragState = this.dragState;
+    }
+  }
+
+  onMouseUp() {
+    const velocity = this.dragState?.velocityTracker.velocity ?? CGPointZero;
+    this.dragState = undefined;
+
+    if (CGPointGetLength(velocity) > 0) {
+      this.ball?.physicsBody?.applyImpulse({ dx: velocity.x, dy: velocity.y });
+    }
+  }
+
+  onScroll(event: NSEvent) {
+    switch (event.phase) {
+      case NSEventPhase.Began:
+        if (this.ball) {
+          this.dragState = new DragState(
+            this.ball.position,
+            CGPointZero,
+            CGPointZero
+          );
+          this.tempMouseCatcherRect = this.mouseCatcherRect;
+        }
+        break;
+      case NSEventPhase.Changed:
+        if (this.dragState) {
+          this.dragState.currentMousePos.x += event.scrollingDeltaX;
+          this.dragState.currentMousePos.y -= event.scrollingDeltaY;
+          this.dragState.velocityTracker.add({
+            x: this.dragState.currentMousePos.x,
+            y: this.dragState.currentMousePos.y,
+          });
+          this.dragState = this.dragState;
+        }
+        break;
+      case NSEventPhase.Ended:
+      case NSEventPhase.Cancelled: {
+        const velocity =
+          this.dragState?.velocityTracker.velocity ?? CGPointZero;
+        this.dragState = undefined;
+
+        if (CGPointGetLength(velocity) > 0) {
+          this.ball?.physicsBody?.applyImpulse({
+            dx: velocity.x,
+            dy: velocity.y,
+          });
+        }
+
+        this.tempMouseCatcherRect = undefined;
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  updateForScene(_currentTime: number, _scene: SKScene): void {
+    this.ballPositionChanged?.();
+  }
+}
+```
+
+Also add this utility function to `util.ts`:
+
+```ts
+export function CGPointGetLength(p: CGPoint) {
+  return Math.sqrt(p.x * p.x + p.y * p.y);
+}
+```
+
+Aaand that's it! Now you can run the project and have the ball draggable using mouse events!
+
+There's still two things left to do: sounds and animations. Sounds will be easy, and adding animations will be quite fun!
+
+### Sounds
+
+Here's what we'll do: load the sounds in view controller, initialize them to make sure they're ready to play, and then play them when the ball hits the screen boundaries - which we detect using `SKPhysicsContactDelegate` protocol.
+
+```ts
+export class ViewController
+  extends NSViewController
+  implements SKSceneDelegate, MouseCatcherDelegate, SKPhysicsContactDelegate
+{
+  static ObjCProtocols = [SKSceneDelegate, SKPhysicsContactDelegate];
+
+  ...
+
+  sounds = ["pop_01", "pop_02", "pop_03"].map((id) =>
+    NSSound.alloc().initWithContentsOfFileByReference(
+      new URL(`../assets/${id}.caf`, import.meta.url).pathname,
+      true
+    )
+  );
+
+  viewDidLoad() {
+    super.viewDidLoad();
+
+    this.view.addSubview(this.sceneView);
+    this.sceneView.presentScene(this.scene);
+    this.scene.backgroundColor = NSColor.clearColor;
+    this.scene.delegate = this;
+    this.scene.physicsWorld.contactDelegate = this;
+    this.sceneView.allowsTransparency = true;
+
+    this.sceneView.preferredFramesPerSecond = 120;
+
+    for (const sound of this.sounds) {
+      sound.volume = 0;
+      sound.play();
+    }
+  }
+
+  ...
+
+  didBeginContact(contact: SKPhysicsContact) {
+    const minImpulse = 1000;
+    const maxImpulse = 2000;
+
+    const collisionStrength = remap(
+      contact.collisionImpulse,
+      minImpulse,
+      maxImpulse,
+      0,
+      0.5
+    );
+
+    if (collisionStrength <= 0) return;
+
+    NSOperationQueue.mainQueue.addOperationWithBlock(() => {
+      const sounds = this.sounds;
+      const soundsUsable = sounds.filter((sound) => !sound.isPlaying);
+      if (soundsUsable.length === 0) return;
+      const randomSound =
+        soundsUsable[Math.floor(Math.random() * soundsUsable.length)];
+      randomSound.volume = collisionStrength;
+      randomSound.play();
+    });
+  }
+}
+```
+
+That's all! Now when you run it, you will be able to hear fun sound effects as the ball collides with the screen boundaries.

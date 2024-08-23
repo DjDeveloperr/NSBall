@@ -47,7 +47,6 @@ export class AppDelegate
     this._ballVisible = value;
 
     this.ballWindow.setIsVisible(value);
-    this.clickWindow.setIsVisible(value);
     this.ballViewController.sceneView.isPaused = !value;
 
     NSApp.dockTile.contentView = value
@@ -55,6 +54,7 @@ export class AppDelegate
       : this.ballImageView;
     NSApp.dockTile.display();
 
+    this.clickWindow.setIsVisible(value);
     if (value) {
       this.updateClickWindow();
     }
@@ -86,10 +86,6 @@ export class AppDelegate
     window.ignoresMouseEvents = true;
     window.level = NSScreenSaverWindowLevel;
     window.contentViewController = this.ballViewController;
-
-    this.ballViewController.ballPositionChanged = () => {
-      this.updateClickWindow();
-    };
 
     this.ballWindow = window;
     this.updateWindowSize();
@@ -123,6 +119,10 @@ export class AppDelegate
     catcher.delegate = this.ballViewController;
 
     this.clickWindow = clickWindow;
+
+    this.ballViewController.ballPositionChanged = () => {
+      this.updateClickWindow();
+    };
   }
 
   updateClickWindow() {
