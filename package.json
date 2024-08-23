@@ -1,0 +1,17 @@
+{
+  "name": "nsball",
+  "version": "1.0.0",
+  "description": "https://github.com/nate-parrott/ball but using NativeScript, runs on both Node.js and Deno.",
+  "main": "dist/main.js",
+  "type": "module",
+  "dependencies": {
+    "@nativescript/macos-node-api": "file:../gh/nativescript/runtime/packages/macos"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}

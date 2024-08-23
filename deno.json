@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "run": "deno run -A --unstable-sloppy-imports src/main.ts"
+  },
+
+  "imports": {
+    "@nativescript/macos-node-api": "../gh/nativescript/runtime/packages/macos/mod.ts"
+  }
+}
