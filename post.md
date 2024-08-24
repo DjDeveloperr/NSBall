@@ -8,13 +8,13 @@ NativeScript has already worked very well on iOS and Android, but what is new he
 
 > Note: There's some examples in the `examples` directory that demonstrate how to use NativeScript Node-API with various frameworks!
 
-We came across this project: [Ball by Nate Parrot](https://github.com/nate-parrott/ball) - which is like a ball that sits in your dock and you can click to launch the ball (or re-dock it) that overlays on your screen, and you can interact with it. There are some fun little details to it, and it uses AppKit & SpriteKit to render the ball and the physics of it, with a bit of animations using Swift Motion library - but we did that using popmotion in JS instead! It's a fun little project to tinker with, and it's a great example of what you can do with NativeScript Node-API.
+We came across this project: [ball by Nate Parrot](https://github.com/nate-parrott/ball) - which is just a ball that sits in your dock and you can click to launch the ball (or re-dock it) that overlays on your screen, and you can interact with it. There are some fun little details to it, and it uses AppKit & SpriteKit to render the ball and the physics of it, with a bit of animations using Swift Motion library - but we did that using popmotion in JS instead! It's a fun little project to tinker with, and it's a great example of what you can do with NativeScript Node-API.
 
 The beauty of NativeScript is that native APIs are available almost 1:1 in JavaScript, so all you need are Apple docs open by the side and start building something. Even though that project is written in Swift, it's still straightforward to understand the logic and do it the exact same way in JavaScript.
 
 ## Understanding the project
 
-When we look at the source, the main entrypoint is `AppDelegate` class (part of AppDelegate.swift) which makes use of `AppController`. The ball launches from the dock and also goes back there so the dock events are handled in the app delegate, then there is app controller which is the main controller for the app that abstracts the main logic of the app such as launching and docking the ball in `dockIconClicked` and also handles the two windows used here. One is the window with the ball rendered using SpriteKit that covers the whole screen, and the other is a small transparent window that sits on top and is the exact same size as the ball just to capture mouse events (dragging the ball around). That is all for the basic logic of how this project works.
+When we look at the source, the main entrypoint is `AppDelegate` class (part of AppDelegate.swift). The ball launches from the dock and also goes back there so the dock events are handled in the app delegate, then there is app controller that abstracts the main logic of the app such as launching and docking the ball in `dockIconClicked` and also handles the two windows used here. One is the window with the ball rendered using SpriteKit that covers the whole screen, and the other is a small transparent window that sits on top and is the exact same size as the ball to capture mouse events for interactivity. That is all for the basic logic of how this project works.
 
 ## Initialize the project
 
@@ -44,9 +44,30 @@ And running `deno task run` should print out your OS version!
 
 This allows us to run on Deno. To run on Node.js, initialize the project as you would with `npm init`, install `npm install @nativescript/macos-node-api`. Make sure to setup `tsconfig.json` too, run the TypeScript compiler and then run the project with `node`. Boom, you get the same output but in Node.js! Node-API allows NativeScript to run seamlessly on both Node.js and Deno.
 
+Here's the `tsconfig.json` I used:
+
+```json
+{
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "target": "ES2023",
+    "module": "ES2022",
+    "moduleResolution": "Node",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  }
+}
+```
+
+The module systems in Node.js and Deno are a bit different. To make it work in both, we set the module system to ES2022. The output code will use ESM which will work in both Node.js and Deno. The only difference now is that Deno requires you to use fully qualified specifies with `.ts` at end, but this will emit the specifiers as-is. That's why we will use `.js` specifiers in the code so the emitted code works in Node.js, and to run the TypeScript itself in Deno, we'll have to use `--unstable-sloppy-imports` flag.
+
 ## Implementation
 
-### Basic AppKit setup
+### Basic AppKit application
 
 Let's start by making the AppDelegate class.
 
@@ -121,7 +142,7 @@ Now, when the application finishes launching, what we'll do is make a window on 
 export class AppDelegate extends NSObject implements NSApplicationDelegate {
   ...
 
-  ballWindow?: NSWindow;
+  ballWindow!: NSWindow;
 
   makeBallWindow() {
     const window = NSWindow.alloc().initWithContentRectStyleMaskBackingDefer(
@@ -152,12 +173,12 @@ export class AppDelegate extends NSObject implements NSApplicationDelegate {
   }
 
   updateWindowSize() {
-    const screen = this.ballWindow?.screen;
+    const screen = this.ballWindow.screen;
     if (!screen) {
       return;
     }
 
-    this.ballWindow!.setFrameDisplay({
+    this.ballWindow.setFrameDisplay({
       origin: { x: screen.frame.origin.x, y: screen.frame.origin.y },
       size: {
         width: screen.frame.size.width,
@@ -622,6 +643,82 @@ export class AppDelegate
 
 Now we can run the project and see the ball launch and dock when the dock icon is clicked!
 
+### Shadow
+
+Let's also add a shadow to the ball that fades in when the ball is near the bottom of the screen.
+
+`ball.ts`:
+
+```ts
+export class Ball extends SKNode {
+  ...
+
+  shadowSprite = SKSpriteNode.spriteNodeWithTexture(
+    SKTexture.textureWithImage(
+      NSImage.alloc().initWithContentsOfFile(
+        new URL("../assets/ContactShadow.png", import.meta.url).pathname
+      )
+    )
+  );
+  shadowContainer = SKNode.new();
+
+  ...
+
+  static create(radius: number, pos: CGPoint) {
+    ...
+
+    ball.addChild(ball.shadowContainer);
+    ball.shadowContainer.addChild(ball.shadowSprite);
+    const shadowWidth = radius * 4;
+    ball.shadowSprite.size = {
+      width: shadowWidth,
+      height: 0.564 * shadowWidth,
+    };
+    ball.shadowSprite.alpha = 0;
+    ball.shadowContainer.alpha = 0;
+
+    ball.addChild(ball.imgContainer);
+    ball.imgContainer.addChild(ball.imgNode);
+
+    return ball;
+  }
+
+  update() {
+    this.shadowSprite.position = {
+      x: 0,
+      y: this.radius * 0.3 - this.position.y,
+    };
+
+    const distFromBottom = this.position.y - this.radius;
+    this.shadowSprite.alpha = remap(distFromBottom, 0, 200, 1, 0);
+
+    const yDelta = (-(1 - this.imgContainer.xScale) * this.radius) / 2;
+    this.imgContainer.position = { x: 0, y: yDelta };
+  }
+
+  ...
+
+  animateShadow(visible: boolean, duration: number) {
+    if (visible) {
+      this.shadowContainer.runAction(SKAction.fadeInWithDuration(duration));
+    } else {
+      this.shadowContainer.runAction(SKAction.fadeOutWithDuration(duration));
+    }
+  }
+
+}
+```
+
+This makes the shadow more or less prominent based on the distance from bottom. We also need to call `animateShadow` in `launch` and `dock` methods in the view controller.
+
+```ts
+// in launch
+ball.animateShadow(true, 0.5);
+
+// in dock
+ball.animateShadow(false, 0.25);
+```
+
 ### Interactions
 
 Next, let's add click handling. For that we need a window on same level but this time it accepts mouse events and only covers the part of the scene which is visible, i.e. the ball itself.
@@ -1072,3 +1169,326 @@ export class ViewController
 ```
 
 That's all! Now when you run it, you will be able to hear fun sound effects as the ball collides with the screen boundaries.
+
+### Animations
+
+This part is not as trivial to implement because we'll do it a bit differently. We'll use `popmotion` from npm to implement the spring animations we'll use in two places: one when the ball is being dragged that it scales up a bit, and other when the ball hits the screen boundaries that it squishes.
+
+The only animation we need is a spring animation. On the web, `popmotion` will use `requestAnimationFrame` to animate the values, but here we don't have that. Instead, we'll implement our own animation loop using `CADisplayLink`. You can read more about drivers [here in popmotion documentation](https://popmotion.io/#quick-start-animation-animate-options-driver).
+
+So essentially driver is a function that accepts a callback which is called on every frame/tick, and it returns a function that stops the animation. First, let's implement the driver and then the animation function.
+
+`motion.ts`:
+
+```ts
+import "@nativescript/macos-node-api";
+import { Driver } from "popmotion";
+
+export class CALayerDriver extends NSObject {
+  static ObjCExposedMethods = {
+    tick: { returns: interop.types.void, params: [] },
+  };
+
+  static {
+    NativeClass(this);
+  }
+
+  displayLink?: CADisplayLink;
+  tickers = new Set<(timestamp: number) => void>();
+  prevTick?: number;
+
+  tick() {
+    if (!this.displayLink) {
+      throw new Error("Display link is not initialized and tick was called");
+    }
+
+    const timestamp = performance.now();
+    const delta = this.prevTick ? timestamp - this.prevTick : 0;
+    this.prevTick = timestamp;
+
+    for (const ticker of this.tickers) {
+      ticker(delta);
+    }
+  }
+
+  static instance = CALayerDriver.new();
+
+  static driver: Driver = (update) => {
+    return {
+      start: () => {
+        this.instance.tickers.add(update);
+
+        if (this.instance.tickers.size === 1) {
+          this.start();
+        }
+      },
+
+      stop: () => {
+        if (!this.instance.tickers.delete(update)) {
+          return;
+        }
+
+        if (this.instance.tickers.size === 0) {
+          this.stop();
+        }
+      },
+    };
+  };
+
+  static start() {
+    if (this.instance.displayLink) {
+      return;
+    }
+
+    this.instance.displayLink =
+      NSScreen.mainScreen.displayLinkWithTargetSelector(this.instance, "tick");
+
+    this.instance.displayLink.addToRunLoopForMode(
+      NSRunLoop.currentRunLoop,
+      NSDefaultRunLoopMode
+    );
+
+    this.instance.displayLink.preferredFrameRateRange = {
+      minimum: 90,
+      maximum: 120,
+      preferred: 120,
+    };
+
+    this.instance.prevTick = performance.now();
+  }
+
+  static stop() {
+    if (!this.instance.displayLink) {
+      return;
+    }
+
+    this.instance.displayLink.invalidate();
+    this.instance.displayLink = undefined;
+  }
+}
+```
+
+Now let's implement the spring animation.
+
+`motion.ts`:
+
+```ts
+export class SpringParams {
+  static passiveEase = new SpringParams(0.35, 0.85);
+
+  constructor(
+    public response: number,
+    public dampingRatio: number,
+    public epsilon = 0.01
+  ) {}
+}
+
+export interface Sample {
+  time: number;
+  value: number;
+}
+
+export class VelocityTracker {
+  samples: Sample[] = [];
+
+  addSample(val: number) {
+    this.samples.push({ time: CACurrentMediaTime(), value: val });
+    this.trim();
+  }
+
+  get velocity() {
+    this.trim();
+    if (this.samples[0] && this.samples[this.samples.length - 1]) {
+      const timeDelta = CACurrentMediaTime() - this.samples[0].time;
+      const distDelta =
+        this.samples[this.samples.length - 1].value - this.samples[0].value;
+      if (timeDelta > 0) {
+        return distDelta / timeDelta;
+      }
+    }
+    return 0;
+  }
+
+  lookBack = 1.0 / 15;
+
+  trim() {
+    const now = CACurrentMediaTime();
+    while (
+      this.samples.length > 0 &&
+      now - this.samples[0].time > this.lookBack
+    ) {
+      this.samples.shift();
+    }
+  }
+}
+
+export class SpringAnimation {
+  animating = false;
+
+  externallySetVelocityTracker = new VelocityTracker();
+
+  onChange?: (value: number) => void;
+
+  _value = 0;
+
+  get value() {
+    return this._value;
+  }
+
+  set value(value) {
+    this._value = value;
+    this.stop();
+    this.externallySetVelocityTracker.addSample(value);
+  }
+
+  targetValue?: number;
+  _velocity?: number;
+
+  stopFunction?: () => void;
+
+  get velocity() {
+    return this.animating
+      ? this._velocity ?? 0
+      : this.externallySetVelocityTracker.velocity;
+  }
+
+  constructor(
+    initialValue: number,
+    public scale: number,
+    public params: SpringParams = SpringParams.passiveEase
+  ) {
+    this.value = initialValue;
+  }
+
+  start(targetValue: number, velocity: number) {
+    this.stop();
+    this.animating = true;
+    this.targetValue = targetValue;
+    this._velocity = velocity;
+
+    this.stopFunction = animate({
+      type: "spring",
+
+      from: this.value * this.scale,
+      to: this.targetValue * this.scale,
+
+      velocity: this.velocity * this.scale,
+      stiffness: Math.pow((2 * Math.PI) / this.params.response, 2),
+      damping: (4 * Math.PI * this.params.dampingRatio) / this.params.response,
+      restDelta: this.params.epsilon,
+
+      driver: CALayerDriver.driver,
+
+      onUpdate: (value) => {
+        this._value = value / this.scale;
+        this.onChange?.(this.value);
+      },
+
+      onComplete: () => {
+        this.stopFunction = undefined;
+        this.stop();
+      },
+    }).stop;
+  }
+
+  stop() {
+    this.targetValue = undefined;
+    this.animating = false;
+    this.stopFunction?.();
+  }
+}
+```
+
+To use this animation class, let's add it to the ball class.
+
+`ball.ts`:
+
+```ts
+export class Ball extends SKNode {
+  ...
+
+  dragScale = new SpringAnimation(1, 1000, new SpringParams(0.2, 0.8));
+  squish = new SpringAnimation(1, 1000, new SpringParams(0.3, 0.5));
+
+  ...
+
+  _beingDragged = false;
+
+  animateDrag(beingDragged: boolean) {
+    const old = this._beingDragged;
+    this._beingDragged = beingDragged;
+
+    if (old === beingDragged) {
+      return;
+    }
+
+    this.dragScale.start(beingDragged ? 1.05 : 1, this.dragScale.velocity);
+  }
+
+  ...
+
+  update() {
+    this.shadowSprite.position = {
+      x: 0,
+      y: this.radius * 0.3 - this.position.y,
+    };
+
+    const distFromBottom = this.position.y - this.radius;
+    this.shadowSprite.alpha = remap(distFromBottom, 0, 200, 1, 0);
+
+    const yDelta = (-(1 - this.imgContainer.xScale) * this.radius) / 2;
+    this.imgContainer.position = { x: 0, y: yDelta };
+
+    this.imgContainer.xScale = this.squish.value;
+    this.imgNode.setScale(this.dragScale.value);
+  }
+
+  ...
+
+  didCollide(strength: number, normal: CGVector) {
+    const angle = Math.atan2(normal.dy, normal.dx);
+    this.imgContainer.zRotation = angle;
+    this.imgNode.zRotation = -angle;
+
+    const targetScale = remap(strength, 0, 1, 1, 0.8);
+    const velocity = remap(strength, 0, 1, -5, -10);
+    this.squish.start(targetScale, velocity);
+
+    NSTimer.scheduledTimerWithTimeIntervalRepeatsBlock(0.01, false, () => {
+      this.squish.start(1, velocity);
+    });
+  }
+}
+```
+
+The functions to animate squish and drag are complete but we need to call them from the view controller.
+
+`view_controller.ts`:
+
+```ts
+
+export class ViewController
+  extends NSViewController
+  implements SKSceneDelegate, MouseCatcherDelegate, SKPhysicsContactDelegate
+{
+  ...
+
+  set dragState(value) {
+    ...
+
+    this.ball?.animateDrag(!!value);
+  }
+
+  ...
+
+  didBeginContact(contact: SKPhysicsContact) {
+    ...
+
+    this.ball?.didCollide(collisionStrength, contact.contactNormal);
+
+    ...
+  }
+}
+```
+
+That's all for the animations: run the project now, and you will see how the ball scales up/down when being dragged, and squishes when it collides! At this point, this project is feature complete with the original project by Nate Parrott mentioned at the beginning of this post.

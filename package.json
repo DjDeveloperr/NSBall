@@ -5,13 +5,16 @@
   "main": "dist/main.js",
   "type": "module",
   "dependencies": {
-    "@nativescript/macos-node-api": "file:../gh/nativescript/runtime/packages/macos"
+    "@nativescript/macos-node-api": "file:../gh/nativescript/runtime/packages/macos",
+    "popmotion": "^11.0.5"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "node ."
   },
   "keywords": [],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.5.0"
+  }
 }

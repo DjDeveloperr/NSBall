@@ -1,0 +1,48 @@
+{
+  "version": "3",
+  "packages": {
+    "specifiers": {
+      "npm:popmotion@^11.0.5": "npm:popmotion@11.0.5"
+    },
+    "npm": {
+      "framesync@6.1.2": {
+        "integrity": "sha512-jBTqhX6KaQVDyus8muwZbBeGGP0XgujBRbQ7gM7BRdS3CadCZIHiawyzYLnafYcvZIh5j8WE7cxZKFn7dXhu9g==",
+        "dependencies": {
+          "tslib": "tslib@2.4.0"
+        }
+      },
+      "hey-listen@1.0.8": {
+        "integrity": "sha512-COpmrF2NOg4TBWUJ5UVyaCU2A88wEMkUPK4hNqyCkqHbxT92BbvfjoSozkAIIm6XhicGlJHhFdullInrdhwU8Q==",
+        "dependencies": {}
+      },
+      "popmotion@11.0.5": {
+        "integrity": "sha512-la8gPM1WYeFznb/JqF4GiTkRRPZsfaj2+kCxqQgr2MJylMmIKUwBfWW8Wa5fml/8gmtlD5yI01MP1QCZPWmppA==",
+        "dependencies": {
+          "framesync": "framesync@6.1.2",
+          "hey-listen": "hey-listen@1.0.8",
+          "style-value-types": "style-value-types@5.1.2",
+          "tslib": "tslib@2.4.0"
+        }
+      },
+      "style-value-types@5.1.2": {
+        "integrity": "sha512-Vs9fNreYF9j6W2VvuDTP7kepALi7sk0xtk2Tu8Yxi9UoajJdEVpNpCov0HsLTqXvNGKX+Uv09pkozVITi1jf3Q==",
+        "dependencies": {
+          "hey-listen": "hey-listen@1.0.8",
+          "tslib": "tslib@2.4.0"
+        }
+      },
+      "tslib@2.4.0": {
+        "integrity": "sha512-d6xOpEDfsi2CZVlPQzGeux8XMwLT9hssAsaPYExaQMuYskwb+x1x7J371tWlbBdWHroy99KnVB6qIkUbs5X3UQ==",
+        "dependencies": {}
+      }
+    }
+  },
+  "remote": {},
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:popmotion@^11.0.5"
+      ]
+    }
+  }
+}

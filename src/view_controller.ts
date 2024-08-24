@@ -133,6 +133,8 @@ export class ViewController
     } else if (this.ball) {
       this.ball.physicsBody.isDynamic = true;
     }
+
+    this.ball?.animateDrag(!!value);
   }
 
   ballPositionChanged?: () => void;
@@ -204,6 +206,8 @@ export class ViewController
     const scaleUp = SKAction.scaleToDuration(1, 0.5);
     ball.runAction(scaleUp);
 
+    ball.animateShadow(true, 0.5);
+
     this.physicsQueue.push(() => {
       ball.physicsBody.applyImpulse(impulse);
     });
@@ -225,6 +229,8 @@ export class ViewController
     ball.runAction(
       SKAction.scaleToDuration(rect.size.width / (ball.radius * 2), 0.25)
     );
+
+    ball.animateShadow(false, 0.25);
 
     ball.runActionCompletion(
       SKAction.moveToDuration(
@@ -347,6 +353,8 @@ export class ViewController
     );
 
     if (collisionStrength <= 0) return;
+
+    this.ball?.didCollide(collisionStrength, contact.contactNormal);
 
     NSOperationQueue.mainQueue.addOperationWithBlock(() => {
       const sounds = this.sounds;
