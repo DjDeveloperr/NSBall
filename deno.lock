@@ -1,0 +1,81 @@
+{
+  "version": "3",
+  "packages": {
+    "specifiers": {
+      "npm:@nativescript/macos-node-api@~0.1.1": "npm:@nativescript/macos-node-api@0.1.1",
+      "npm:@types/node@^22.5.0": "npm:@types/node@22.5.0",
+      "npm:popmotion@^11.0.5": "npm:popmotion@11.0.5",
+      "npm:typescript@~5.5.0": "npm:typescript@5.5.4"
+    },
+    "npm": {
+      "@nativescript/macos-node-api@0.1.1": {
+        "integrity": "sha512-caJmPsb6864SJZpCYbFkO6YFy8izmuYzlnYNFO/JINoYz3MH4EAMOXCU5bWHeUABnE9BZxzbzv38uBYPgg3yMw==",
+        "dependencies": {
+          "@nativescript/objc-node-api": "@nativescript/objc-node-api@1.0.0-alpha.7"
+        }
+      },
+      "@nativescript/objc-node-api@1.0.0-alpha.7": {
+        "integrity": "sha512-HCkKX46wmc/Oe+Td958HeRmlqKCKmzeeIm0Kofb8aU+6WqjslLK8xGj6HLQT1SyzLWNQdr3dYp7PLFixMjBymw==",
+        "dependencies": {}
+      },
+      "@types/node@22.5.0": {
+        "integrity": "sha512-DkFrJOe+rfdHTqqMg0bSNlGlQ85hSoh2TPzZyhHsXnMtligRWpxUySiyw8FY14ITt24HVCiQPWxS3KO/QlGmWg==",
+        "dependencies": {
+          "undici-types": "undici-types@6.19.8"
+        }
+      },
+      "framesync@6.1.2": {
+        "integrity": "sha512-jBTqhX6KaQVDyus8muwZbBeGGP0XgujBRbQ7gM7BRdS3CadCZIHiawyzYLnafYcvZIh5j8WE7cxZKFn7dXhu9g==",
+        "dependencies": {
+          "tslib": "tslib@2.4.0"
+        }
+      },
+      "hey-listen@1.0.8": {
+        "integrity": "sha512-COpmrF2NOg4TBWUJ5UVyaCU2A88wEMkUPK4hNqyCkqHbxT92BbvfjoSozkAIIm6XhicGlJHhFdullInrdhwU8Q==",
+        "dependencies": {}
+      },
+      "popmotion@11.0.5": {
+        "integrity": "sha512-la8gPM1WYeFznb/JqF4GiTkRRPZsfaj2+kCxqQgr2MJylMmIKUwBfWW8Wa5fml/8gmtlD5yI01MP1QCZPWmppA==",
+        "dependencies": {
+          "framesync": "framesync@6.1.2",
+          "hey-listen": "hey-listen@1.0.8",
+          "style-value-types": "style-value-types@5.1.2",
+          "tslib": "tslib@2.4.0"
+        }
+      },
+      "style-value-types@5.1.2": {
+        "integrity": "sha512-Vs9fNreYF9j6W2VvuDTP7kepALi7sk0xtk2Tu8Yxi9UoajJdEVpNpCov0HsLTqXvNGKX+Uv09pkozVITi1jf3Q==",
+        "dependencies": {
+          "hey-listen": "hey-listen@1.0.8",
+          "tslib": "tslib@2.4.0"
+        }
+      },
+      "tslib@2.4.0": {
+        "integrity": "sha512-d6xOpEDfsi2CZVlPQzGeux8XMwLT9hssAsaPYExaQMuYskwb+x1x7J371tWlbBdWHroy99KnVB6qIkUbs5X3UQ==",
+        "dependencies": {}
+      },
+      "typescript@5.5.4": {
+        "integrity": "sha512-Mtq29sKDAEYP7aljRgtPOpTvOfbwRWlS6dPRzwjdE+C0R4brX/GUyhHSecbHMFLNBLcJIPt9nl9yG5TZ1weH+Q==",
+        "dependencies": {}
+      },
+      "undici-types@6.19.8": {
+        "integrity": "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==",
+        "dependencies": {}
+      }
+    }
+  },
+  "remote": {},
+  "workspace": {
+    "dependencies": [
+      "npm:@nativescript/macos-node-api@~0.1.1"
+    ],
+    "packageJson": {
+      "dependencies": [
+        "npm:@nativescript/macos-node-api@~0.1.1",
+        "npm:@types/node@^22.5.0",
+        "npm:popmotion@^11.0.5",
+        "npm:typescript@~5.5.0"
+      ]
+    }
+  }
+}
