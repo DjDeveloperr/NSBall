@@ -4,6 +4,6 @@
   },
 
   "imports": {
-    "@nativescript/macos-node-api": "0.1.0"
+    "@nativescript/macos-node-api": "npm:@nativescript/macos-node-api@~0.1.1"
   }
 }

@@ -190,7 +190,6 @@ export class AppDelegate
 
     const mouseLocation = NSEvent.mouseLocation;
 
-    // @ts-expect-error TODO: Fix types to include Symbol.iterator for NSArrays
     for (const screen of NSScreen.screens) {
       if (NSPointInRect(mouseLocation, screen.frame)) {
         currentScreen = screen;
