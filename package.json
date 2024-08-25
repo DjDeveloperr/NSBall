@@ -5,11 +5,14 @@
   "main": "dist/main.js",
   "type": "module",
   "dependencies": {
-    "@nativescript/macos-node-api": "~0.1.0",
-    "popmotion": "^11.0.5"
+    "@nativescript/macos-node-api": "~0.1.1",
+    "popmotion": "^11.0.5",
+    "typescript": "~5.5.0"
   },
   "scripts": {
-    "test": "node ."
+    "test": "node .",
+    "build": "tsc",
+    "start": "npm run build && node dist/main.js"
   },
   "keywords": [],
   "author": "",
