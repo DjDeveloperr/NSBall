@@ -5,7 +5,7 @@
   "main": "dist/main.js",
   "type": "module",
   "dependencies": {
-    "@nativescript/macos-node-api": "file:../gh/nativescript/runtime/packages/macos",
+    "@nativescript/macos-node-api": "~0.1.0",
     "popmotion": "^11.0.5"
   },
   "scripts": {
