@@ -3,7 +3,5 @@
     "start": "deno run -A --unstable-sloppy-imports src/main.ts"
   },
 
-  "imports": {
-    "@nativescript/macos-node-api": "npm:@nativescript/macos-node-api@~0.1.1"
-  }
+  "importMap": "./import_map.json"
 }

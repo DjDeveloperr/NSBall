@@ -66,9 +66,6 @@
   },
   "remote": {},
   "workspace": {
-    "dependencies": [
-      "npm:@nativescript/macos-node-api@~0.1.1"
-    ],
     "packageJson": {
       "dependencies": [
         "npm:@nativescript/macos-node-api@~0.1.1",
